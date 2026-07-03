@@ -3,17 +3,17 @@
 Example usage of the YouTube Transcript API
 """
 
+import sys
 from youtube_transcript_api import YouTubeTranscriptApi
 
 
-def main():
+def main(video_id):
     """
     Main function to demonstrate YouTube Transcript API usage
-    """
     
-    # Example: YouTube video ID
-    # You can extract this from a URL like: https://www.youtube.com/watch?v=VIDEO_ID
-    video_id = "dQw4w9WgXcQ"  # Replace with your video ID
+    Args:
+        video_id (str): YouTube video ID
+    """
     
     try:
         # Fetch transcript in default language
@@ -41,6 +41,9 @@ def main():
 def get_available_languages(video_id):
     """
     Fetch available transcript languages for a video
+    
+    Args:
+        video_id (str): YouTube video ID
     """
     try:
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
@@ -61,6 +64,10 @@ def get_available_languages(video_id):
 def get_transcript_by_language(video_id, language_code):
     """
     Fetch transcript in a specific language
+    
+    Args:
+        video_id (str): YouTube video ID
+        language_code (str): Language code (e.g., 'en', 'pt', 'es')
     """
     try:
         transcript = YouTubeTranscriptApi.get_transcript(
@@ -77,10 +84,24 @@ def get_transcript_by_language(video_id, language_code):
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: python main.py <video_id> [language_code]")
+        print("\nExample:")
+        print("  python main.py dQw4w9WgXcQ")
+        print("  python main.py dQw4w9WgXcQ pt")
+        print("\nOptions:")
+        print("  --languages <video_id>  : List available languages")
+        sys.exit(1)
     
-    # Uncomment to see available languages:
-    # get_available_languages("dQw4w9WgXcQ")
+    video_id = sys.argv[1]
     
-    # Uncomment to get transcript in a specific language:
-    # get_transcript_by_language("dQw4w9WgXcQ", "pt")  # Portuguese
+    # Check for optional arguments
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "--languages":
+            get_available_languages(video_id)
+        else:
+            # Treat as language code
+            get_transcript_by_language(video_id, sys.argv[2])
+    else:
+        # Default: fetch transcript in default language
+        main(video_id)
