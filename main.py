@@ -41,18 +41,15 @@ def get_transcript(
         dict: Transcript data with metadata
     """
     try:
-        # Create an instance of YouTubeTranscriptApi
-        youtube = YouTubeTranscriptApi()
-        
         if language:
             # Fetch transcript in specific language
-            transcript = youtube.get_transcript(
+            transcript = YouTubeTranscriptApi.get_transcript(
                 video_id,
                 languages=[language]
             )
         else:
             # Fetch transcript in default language
-            transcript = youtube.get_transcript(video_id)
+            transcript = YouTubeTranscriptApi.get_transcript(video_id)
         
         # Combine text entries
         full_text = " ".join([entry["text"] for entry in transcript])
@@ -85,8 +82,7 @@ def get_available_languages(video_id: str):
         dict: Available languages organized by type (manual/auto-generated)
     """
     try:
-        youtube = YouTubeTranscriptApi()
-        transcript_list = youtube.list_transcripts(video_id)
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
         manually_created = [
             {
