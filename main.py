@@ -4,7 +4,7 @@ FastAPI application for YouTube Transcript API
 """
 
 from fastapi import FastAPI, HTTPException, Query
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi as YTTranscriptApi
 
 app = FastAPI(
     title="YouTube Transcript API",
@@ -41,15 +41,17 @@ def get_transcript(
         dict: Transcript data with metadata
     """
     try:
+        yt_api = YTTranscriptApi()
+        
         if language:
             # Fetch transcript in specific language
-            transcript = YouTubeTranscriptApi.get_transcript(
+            transcript = yt_api.get_transcript(
                 video_id,
                 languages=[language]
             )
         else:
             # Fetch transcript in default language
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
+            transcript = yt_api.get_transcript(video_id)
         
         # Combine text entries
         full_text = " ".join([entry["text"] for entry in transcript])
@@ -82,7 +84,8 @@ def get_available_languages(video_id: str):
         dict: Available languages organized by type (manual/auto-generated)
     """
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        yt_api = YTTranscriptApi()
+        transcript_list = yt_api.list_transcripts(video_id)
         
         manually_created = [
             {
