@@ -1,107 +1,133 @@
 #!/usr/bin/env python3
 """
-Example usage of the YouTube Transcript API
+FastAPI application for YouTube Transcript API
 """
 
-import sys
+from fastapi import FastAPI, HTTPException, Query
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+
+app = FastAPI(
+    title="YouTube Transcript API",
+    description="API para obter transcrições de vídeos do YouTube",
+    version="1.0.0"
+)
 
 
-def main(video_id):
+@app.get("/")
+def health_check():
     """
-    Main function to demonstrate YouTube Transcript API usage
+    Health check endpoint
+    """
+    return {
+        "status": "ok",
+        "message": "YouTube Transcript API is running",
+        "version": "1.0.0"
+    }
+
+
+@app.get("/transcript/{video_id}")
+def get_transcript(
+    video_id: str,
+    language: str = Query(None, description="Language code (e.g., 'en', 'pt', 'es')")
+):
+    """
+    Fetch transcript for a YouTube video
     
     Args:
         video_id (str): YouTube video ID
-    """
+        language (str, optional): Language code for the transcript
     
+    Returns:
+        dict: Transcript data with metadata
+    """
     try:
-        # Fetch transcript in default language
-        print(f"Fetching transcript for video: {video_id}\n")
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        if language:
+            # Fetch transcript in specific language
+            transcript = YouTubeTranscriptApi.get_transcript(
+                video_id,
+                languages=[language]
+            )
+        else:
+            # Fetch transcript in default language
+            transcript = YouTubeTranscriptApi.get_transcript(video_id)
         
-        # Display transcript
-        print("=" * 60)
-        print("TRANSCRIPT")
-        print("=" * 60)
-        for entry in transcript:
-            print(f"[{entry['start']:.2f}s] {entry['text']}")
+        # Combine text entries
+        full_text = " ".join([entry["text"] for entry in transcript])
         
-        # Optional: Save transcript to a file
-        with open("transcript.txt", "w", encoding="utf-8") as f:
-            for entry in transcript:
-                f.write(f"{entry['text']} ")
-        print("\n✓ Transcript saved to 'transcript.txt'")
-        
+        return {
+            "status": "success",
+            "video_id": video_id,
+            "language": language or "default",
+            "entries_count": len(transcript),
+            "transcript": transcript,
+            "full_text": full_text
+        }
+    
+    except TranscriptsDisabled:
+        raise HTTPException(
+            status_code=404,
+            detail="Transcripts are disabled for this video"
+        )
+    except NoTranscriptFound:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No transcript found for video {video_id} in language {language or 'default'}"
+        )
     except Exception as e:
-        print(f"Error fetching transcript: {e}")
-        print("Please check the video ID and try again.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error fetching transcript: {str(e)}"
+        )
 
 
-def get_available_languages(video_id):
+@app.get("/languages/{video_id}")
+def get_available_languages(video_id: str):
     """
-    Fetch available transcript languages for a video
+    List available transcript languages for a video
     
     Args:
         video_id (str): YouTube video ID
+    
+    Returns:
+        dict: Available languages organized by type (manual/auto-generated)
     """
     try:
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
-        print(f"Available languages for video {video_id}:")
-        print("\nManually created transcripts:")
-        for transcript in transcript_list.manually_created_transcripts:
-            print(f"  - {transcript.language} ({transcript.language_code})")
+        manually_created = [
+            {
+                "language": t.language,
+                "language_code": t.language_code,
+                "is_generated": t.is_generated
+            }
+            for t in transcript_list.manually_created_transcripts
+        ]
         
-        print("\nAuto-generated transcripts:")
-        for transcript in transcript_list.automatically_generated_transcripts:
-            print(f"  - {transcript.language} ({transcript.language_code})")
-            
-    except Exception as e:
-        print(f"Error listing transcripts: {e}")
-
-
-def get_transcript_by_language(video_id, language_code):
-    """
-    Fetch transcript in a specific language
+        auto_generated = [
+            {
+                "language": t.language,
+                "language_code": t.language_code,
+                "is_generated": t.is_generated
+            }
+            for t in transcript_list.automatically_generated_transcripts
+        ]
+        
+        return {
+            "status": "success",
+            "video_id": video_id,
+            "manually_created_transcripts": manually_created,
+            "auto_generated_transcripts": auto_generated,
+            "total_languages": len(manually_created) + len(auto_generated)
+        }
     
-    Args:
-        video_id (str): YouTube video ID
-        language_code (str): Language code (e.g., 'en', 'pt', 'es')
-    """
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(
-            video_id,
-            languages=[language_code]
-        )
-        
-        print(f"Transcript in {language_code}:")
-        for entry in transcript:
-            print(f"[{entry['start']:.2f}s] {entry['text']}")
-            
     except Exception as e:
-        print(f"Error fetching transcript: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error listing transcripts: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <video_id> [language_code]")
-        print("\nExample:")
-        print("  python main.py dQw4w9WgXcQ")
-        print("  python main.py dQw4w9WgXcQ pt")
-        print("\nOptions:")
-        print("  --languages <video_id>  : List available languages")
-        sys.exit(1)
-    
-    video_id = sys.argv[1]
-    
-    # Check for optional arguments
-    if len(sys.argv) > 2:
-        if sys.argv[2] == "--languages":
-            get_available_languages(video_id)
-        else:
-            # Treat as language code
-            get_transcript_by_language(video_id, sys.argv[2])
-    else:
-        # Default: fetch transcript in default language
-        main(video_id)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
